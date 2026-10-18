@@ -1523,6 +1523,33 @@ jobs:
             fi
           fi
 
+      - name: 注入自签管理器证书（dsh）
+        if: inputs.ksu_mode != '禁用KSU'
+        run: |
+          TARGET="$KERNEL_ROOT/KernelSU/kernel/manager/apk_sign.c"
+          EXPECT="4c60603a457547c421684352a4eb06adeddccd0193abb8691fb4ae8b14d535ea"
+          if [ ! -f "$TARGET" ]; then
+            echo "::error::未找到 $TARGET，无法注入自签管理器证书"
+            exit 1
+          fi
+          if grep -q "$EXPECT" "$TARGET"; then
+            echo "自签证书已在白名单中，跳过"
+          else
+            python3 - "$TARGET" "$EXPECT" <<'PY'
+          import sys, pathlib
+          p = pathlib.Path(sys.argv[1]); exp = sys.argv[2]
+          t = p.read_text()
+          anchor = "} apk_sign_keys[] = {"
+          if exp in t:
+              print("already present"); sys.exit(0)
+          if anchor not in t:
+              print("::error::anchor '} apk_sign_keys[] = {' not found"); sys.exit(1)
+          t = t.replace(anchor, anchor + '\n    { 0x361, "%s" }, // dsh self-signed' % exp, 1)
+          p.write_text(t); print("injected")
+          PY
+          fi
+          echo "--- 当前管理器证书白名单 ---"
+          sed -n '/^} apk_sign_keys\[\] = {/,/^};/p' "$TARGET"
       - name: 编译内核
         id: compile_kernel
         uses: nick-fields/retry@v4
