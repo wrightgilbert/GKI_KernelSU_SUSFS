@@ -1550,6 +1550,27 @@ jobs:
           fi
           echo "--- 当前管理器证书白名单 ---"
           sed -n '/^} apk_sign_keys\[\] = {/,/^};/p' "$TARGET"
+      - name: 注入 VDRM 虚拟 DRM 驱动（dsh）
+        if: inputs.android_version == 'android15' && inputs.kernel_version == '6.6'
+        run: |
+          set -e
+          DEST="$KERNEL_ROOT/common/drivers/vdrm"
+          mkdir -p "$DEST"
+          echo "=== 注入 VDRM 虚拟 DRM 驱动 ==="
+          wget -q -O "$DEST/vdrm_ko.c" https://raw.githubusercontent.com/zzz-sleep0/VDRM/weekly-2026-W43/vdrm-ko-ddk/driver/vdrm_ko.c
+          wc -c "$DEST/vdrm_ko.c"
+          printf '%s\n' \
+            'obj-y += vdrm_ko.o' \
+            'ccflags-y += -Wno-declaration-after-statement -Wno-unused-variable -Wno-int-conversion -Wno-unused-result -Wno-unused-function' \
+            "ccflags-y += -Wno-builtin-macro-redefined -U__FILE__ -D__FILE__='\"\"'" > "$DEST/Makefile"
+          cat "$DEST/Makefile"
+          MK="$KERNEL_ROOT/common/drivers/Makefile"
+          if ! grep -q "vdrm/" "$MK"; then
+            printf '\nobj-y += vdrm/\n' >> "$MK"
+            echo "已追加 obj-y += vdrm/ 到 drivers/Makefile"
+          fi
+          tail -3 "$MK"
+
       - name: 编译内核
         id: compile_kernel
         uses: nick-fields/retry@v4
