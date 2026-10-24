@@ -21,6 +21,7 @@
 #include <linux/wait.h>
 #include <linux/poll.h>
 #include <linux/miscdevice.h>
+#include <linux/workqueue.h>
 #include <linux/platform_device.h>
 #include <linux/input.h>
 #include <linux/input/mt.h>	/* input_mt_init_slots / INPUT_MT_DIRECT */
@@ -1796,7 +1797,7 @@ static int __init vdrm_enable_setup(char *str)
 }
 __setup("vdrm_enable", vdrm_enable_setup);
 
-static int vdrm_init(void)
+static int vdrm_bringup(void)
 {
 	int rc;
 
@@ -1842,7 +1843,27 @@ static void vdrm_exit(void)
 	pr_info("vdrm: exit ok (dev=%px)\n", g_dev);
 }
 
-module_init(vdrm_init);
+static struct delayed_work vdrm_bringup_dwork;
+
+static void vdrm_bringup_worker(struct work_struct *w)
+{
+	pr_info("vdrm: deferred bring-up start (t+15s)\n");
+	vdrm_bringup();
+}
+
+static int __init vdrm_init(void)
+{
+	if (!vdrm_enabled) {
+		pr_info("vdrm: late init, gate closed, driver stays inert\n");
+		return 0;
+	}
+	INIT_DELAYED_WORK(&vdrm_bringup_dwork, vdrm_bringup_worker);
+	schedule_delayed_work(&vdrm_bringup_dwork, msecs_to_jiffies(15000));
+	pr_info("vdrm: late init, bring-up queued at t+15s\n");
+	return 0;
+}
+
+late_initcall(vdrm_init);
 module_exit(vdrm_exit);
 
 MODULE_LICENSE("GPL");
