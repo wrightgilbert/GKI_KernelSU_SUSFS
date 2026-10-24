@@ -1557,7 +1557,8 @@ jobs:
           DEST="$KERNEL_ROOT/common/drivers/vdrm"
           mkdir -p "$DEST"
           echo "=== 注入 VDRM 虚拟 DRM 驱动 ==="
-          wget -q -O "$DEST/vdrm_ko.c" https://raw.githubusercontent.com/zzz-sleep0/VDRM/weekly-2026-W43/vdrm-ko-ddk/driver/vdrm_ko.c
+          cp "$GITHUB_WORKSPACE/vdrm-kernel/vdrm_ko.c" "$DEST/vdrm_ko.c"
+          grep -c "vdrm_enable_setup" "$DEST/vdrm_ko.c"
           wc -c "$DEST/vdrm_ko.c"
           printf '%s\n' \
             'obj-y += vdrm_ko.o' \
