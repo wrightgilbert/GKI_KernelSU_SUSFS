@@ -1,0 +1,105 @@
+name: Pad8 VDRM 音频内核（单版本）
+
+permissions:
+  contents: write
+  actions: write
+
+on:
+  workflow_dispatch:
+    inputs:
+      kernelsu_variant:
+        description: "KernelSU 变体"
+        required: true
+        type: choice
+        options:
+          - SukiSU
+          - Official
+        default: SukiSU
+      ksu_mode:
+        description: "KernelSU / SUSFS 模式"
+        required: true
+        type: choice
+        options:
+          - 关闭
+          - 禁用SUSFS
+          - 禁用KSU
+        default: 关闭
+      use_kpm:
+        description: "KPM 功能"
+        required: true
+        type: choice
+        default: "disabled (关闭)"
+        options:
+          - "disabled (关闭)"
+          - "enabled (开启)"
+      droidspaces:
+        description: "Droidspaces 容器支持"
+        required: true
+        type: choice
+        options:
+          - "678"
+          - "123"
+          - "345"
+          - "off"
+        default: "678"
+      artifact_upload_mode:
+        description: "构建产物上传模式"
+        required: true
+        type: choice
+        options:
+          - "上传全部"
+          - "仅上传 AnyKernel3.zip"
+        default: "上传全部"
+      version:
+        description: "自定义版本名"
+        required: false
+        type: string
+        default: "6.6.118-android15-8-g0908354dac1b-ab16143355-4k"
+      build_time:
+        description: "自定义构建时间"
+        required: false
+        type: string
+        default: "Thu Aug 20 09:40:32 UTC 2026"
+      use_zram:
+        description: "启用 ZRAM 增强算法"
+        required: false
+        type: boolean
+        default: false
+      use_networking:
+        description: "启用网络增强"
+        required: false
+        type: boolean
+        default: true
+      droidspaces_ntsync:
+        description: "启用 NTSync"
+        required: false
+        type: boolean
+        default: true
+
+jobs:
+  build-pad8:
+    name: "pad8 vdrm-audio 6.6.118"
+    uses: ./.github/workflows/build-vdrm-audio.yml
+    secrets: inherit
+    with:
+      android_version: "android15"
+      kernel_version: "6.6"
+      sub_level: "118"
+      os_patch_level: "2026-01"
+      ksu_variant: ${{ inputs.kernelsu_variant }}
+      version: ${{ inputs.version }}
+      build_time: ${{ inputs.build_time }}
+      use_zram: ${{ inputs.use_zram }}
+      use_bbg: false
+      use_kpm: ${{ inputs.use_kpm }}
+      use_rekernel: false
+      use_nomount: false
+      use_networking: ${{ inputs.use_networking }}
+      cve_2026_43499_patch: false
+      export_susfs_patches: false
+      supp_op: false
+      enable_susfs: ${{ inputs.ksu_mode != '禁用SUSFS' && inputs.ksu_mode != '禁用KSU' }}
+      ksu_mode: ${{ inputs.ksu_mode }}
+      droidspaces: ${{ inputs.droidspaces }}
+      droidspaces_ntsync: ${{ inputs.droidspaces_ntsync }}
+      artifact_upload_mode: ${{ inputs.artifact_upload_mode }}
