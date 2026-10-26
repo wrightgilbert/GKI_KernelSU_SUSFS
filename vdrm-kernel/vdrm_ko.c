@@ -109,6 +109,12 @@ static volatile u64   g_vblank_period_ns = 16666666ULL; /* 60Hz 兜底（pipe en
  * 不 arm 到下一个 hrtimer vblank。虚拟显示没有真实扫描，这是更简单的等价路径；
  * 默认 0 保持原有 arm 行为，方便同一个会话内 A/B。*/
 static bool g_flip_done_immediate = true;
+
+/* 每帧给 exporter 做一次 cache 维护：kgsl 写线性 buffer 后，后手可能读到
+ * 64B(=16 px) 粒度的旧数据（本机表现为每 480 px 一条竖纹）。1=开，0=关（A/B）。 */
+static bool g_cache_maint = true;
+module_param_named(cache_maint, g_cache_maint, bool, 0444);
+MODULE_PARM_DESC(cache_maint, "maintain cache of scanned-out buffer each frame (default 1)");
 module_param_named(flip_done_immediate, g_flip_done_immediate, bool, 0644);
 MODULE_PARM_DESC(flip_done_immediate,
 		 "Complete page-flip events immediately instead of at the next virtual vblank");
@@ -1251,6 +1257,13 @@ static void vdrm_pipe_update(struct drm_simple_display_pipe *pipe,
 		struct drm_gem_object *gobj = pipe->plane.state->fb->obj[0];
 		struct dma_buf *fbdb = (gobj && gobj->import_attach) ?
 			gobj->import_attach->dmabuf : NULL;
+
+		/* 这个栈里没有任何一环做过 cache 维护（gbm shim / mkpool / App 都没有），
+		 * 所以在这里补：begin_cpu_access(FROM_DEVICE)=invalidate，end=写回脏行。 */
+		if (g_cache_maint && fbdb) {
+			if (!dma_buf_begin_cpu_access(fbdb, DMA_FROM_DEVICE))
+				dma_buf_end_cpu_access(fbdb, DMA_FROM_DEVICE);
+		}
 		u32 ready_id = 0;
 		u64 ready_ud = 0;
 		bool ready = false;
