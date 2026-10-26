@@ -1558,10 +1558,14 @@ jobs:
           mkdir -p "$DEST"
           echo "=== 注入 VDRM 虚拟 DRM 驱动 ==="
           cp "$GITHUB_WORKSPACE/vdrm-kernel/vdrm_ko.c" "$DEST/vdrm_ko.c"
+          cp "$GITHUB_WORKSPACE/vdrm-kernel/vdrm_audio.c" "$DEST/vdrm_audio.c"
+          cp "$GITHUB_WORKSPACE/vdrm-kernel/vdrm_audio.h" "$DEST/vdrm_audio.h"
+          wc -c "$DEST/vdrm_audio.c" "$DEST/vdrm_audio.h"
           grep -c "vdrm_enable_setup" "$DEST/vdrm_ko.c"
           wc -c "$DEST/vdrm_ko.c"
           printf '%s\n' \
             'obj-y += vdrm_ko.o' \
+            'obj-y += vdrm_audio.o' \
             'ccflags-y += -Wno-declaration-after-statement -Wno-unused-variable -Wno-int-conversion -Wno-unused-result -Wno-unused-function' \
             "ccflags-y += -Wno-builtin-macro-redefined -U__FILE__ -D__FILE__='\"\"'" > "$DEST/Makefile"
           cat "$DEST/Makefile"

@@ -1797,6 +1797,10 @@ static int __init vdrm_enable_setup(char *str)
 }
 __setup("vdrm_enable", vdrm_enable_setup);
 
+/* vdrm_audio.c */
+extern int vdrm_audio_init(struct device *parent);
+extern void vdrm_audio_exit(void);
+
 static int vdrm_bringup(void)
 {
 	int rc;
@@ -1828,6 +1832,12 @@ static int vdrm_bringup(void)
 	if (rc) goto err;
 	pr_info("vdrm: stage=input-ok\n");
 
+	rc = vdrm_audio_init(&g_pdev->dev);
+	if (rc)
+		pr_err("vdrm: audio init rc=%d (audio disabled)\n", rc);
+	else
+		pr_info("vdrm: stage=audio-ok\n");
+
 	/* 池不在这里建，见上面"池不由内核建" */
 	pr_info("vdrm: bring-up ok (dev=%px)\n", g_dev);
 	return 0;
@@ -1838,6 +1848,7 @@ err:
 
 static void vdrm_exit(void)
 {
+	vdrm_audio_exit();
 	vdrm_input_teardown();
 	vdrm_do_unregister();
 	pr_info("vdrm: exit ok (dev=%px)\n", g_dev);
