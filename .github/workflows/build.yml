@@ -1557,6 +1557,25 @@ jobs:
           fi
           echo "--- 当前管理器证书白名单 ---"
           sed -n '/^} apk_sign_keys\[\] = {/,/^};/p' "$TARGET"
+      - name: 修复 SUSFS 在 6.12.69 的 include 冲突
+        if: inputs.enable_susfs
+        working-directory: ${{ env.KERNEL_ROOT }}/common
+        run: |
+          python3 - <<'PY'
+          import pathlib
+          p = pathlib.Path('fs/exec.c')
+          t = p.read_text()
+          if 'linux/susfs_def.h' in t:
+              print('already present'); raise SystemExit(0)
+          anchor = '#include <linux/uaccess.h>'
+          if anchor not in t:
+              print('::error::anchor not found'); raise SystemExit(1)
+          ins = '#ifdef CONFIG_KSU_SUSFS\n#include <linux/susfs_def.h>\n#endif\n\n'
+          t = t.replace(anchor, ins + anchor, 1)
+          p.write_text(t)
+          print('injected susfs_def.h include')
+          PY
+          grep -n 'susfs_def.h' fs/exec.c
       - name: 编译内核
         id: compile_kernel
         uses: nick-fields/retry@v4
