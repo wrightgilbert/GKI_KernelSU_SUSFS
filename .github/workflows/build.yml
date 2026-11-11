@@ -788,6 +788,16 @@ jobs:
           echo "SUSFS_PATCH_EXPORT=true" >> $GITHUB_ENV
           echo "基线树对象: $SUSFS_BASE_TREE"
 
+      - name: 调整 6.12 exec.c 上下文（SUSFS 补丁前置）
+        if: inputs.enable_susfs && inputs.android_version == 'android16' && inputs.kernel_version == '6.12'
+        working-directory: ${{ env.KERNEL_ROOT }}/common
+        run: |
+          if grep -q '^#include <linux/dma-buf.h>$' fs/exec.c; then
+            sed -i '/^#include <linux\/dma-buf.h>$/d' fs/exec.c
+            echo "已临时删除 fs/exec.c 的 dma-buf.h include"
+          else
+            echo "fs/exec.c 无 dma-buf.h include，跳过"
+          fi
       - name: 应用 SUSFS 补丁
         if: inputs.enable_susfs
         working-directory: ${{ env.KERNEL_ROOT }}
@@ -798,6 +808,25 @@ jobs:
           OS_PATCH_LEVEL: ${{ inputs.os_patch_level }}
           SUB_LEVEL: ${{ inputs.sub_level }}
         run: bash "$GITHUB_WORKSPACE/scripts/susfs_fixes/apply.sh"
+
+      - name: 还原 6.12 exec.c 的 dma-buf include
+        if: inputs.enable_susfs && inputs.android_version == 'android16' && inputs.kernel_version == '6.12'
+        working-directory: ${{ env.KERNEL_ROOT }}/common
+        run: |
+          python3 - <<'PY'
+          import pathlib
+          p = pathlib.Path('fs/exec.c')
+          t = p.read_text()
+          if '#include <linux/dma-buf.h>' in t:
+              print('already present'); raise SystemExit(0)
+          anchor = '#ifdef CONFIG_KSU_SUSFS\n#include <linux/susfs_def.h>'
+          if anchor not in t:
+              print('::error::anchor not found'); raise SystemExit(1)
+          t = t.replace(anchor, '#include <linux/dma-buf.h>\n' + anchor, 1)
+          p.write_text(t)
+          print('restored dma-buf.h include')
+          PY
+          grep -n 'dma-buf.h\|susfs_def.h' fs/exec.c
 
       - name: 生成 SUSFS 集成补丁
         if: env.SUSFS_PATCH_EXPORT == 'true'
