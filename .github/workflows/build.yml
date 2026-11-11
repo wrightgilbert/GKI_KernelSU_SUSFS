@@ -245,10 +245,15 @@ jobs:
 
       - name: 安装编译依赖
         run: |
-          # runner 默认走 azure.archive.ubuntu.com，DNS 解析失败时换官方源并加重试
-          sudo sed -i 's|azure.archive.ubuntu.com|archive.ubuntu.com|g' /etc/apt/apt-mirrors.txt /etc/apt/sources.list.d/*.sources 2>/dev/null || true
-          sudo apt-get -o Acquire::Retries=5 -o Acquire::http::Timeout=30 update
-          sudo apt-get -o Acquire::Retries=5 -o Acquire::http::Timeout=30 install -y ccache python3 git curl build-essential libssl-dev bison flex libelf-dev dwarves
+          set -x
+          # runner 的 azure 镜像 DNS 解析失败：先兜底 DNS，再换 HTTPS 官方源，最后加重试/强制 IPv4
+          sudo sh -c 'printf "nameserver 1.1.1.1\nnameserver 8.8.8.8\nnameserver 223.5.5.5\n" > /etc/resolv.conf' || true
+          for f in /etc/apt/apt-mirrors.txt /etc/apt/sources.list /etc/apt/sources.list.d/*.sources; do
+            [ -f "$f" ] && sudo sed -i -e 's|http://azure.archive.ubuntu.com|https://archive.ubuntu.com|g' -e 's|http://archive.ubuntu.com|https://archive.ubuntu.com|g' "$f" || true
+          done
+          APT_OPTS="-o Acquire::Retries=5 -o Acquire::http::Timeout=30 -o Acquire::https::Timeout=30 -o Acquire::ForceIPv4=true"
+          sudo apt-get $APT_OPTS update || sudo apt-get $APT_OPTS update
+          sudo apt-get $APT_OPTS install -y ccache python3 git curl build-essential libssl-dev bison flex libelf-dev dwarves
 
       - name: 配置 ccache
         run: |
