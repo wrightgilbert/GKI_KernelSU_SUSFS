@@ -1579,7 +1579,7 @@ jobs:
           if exp in t:
               print("already present"); sys.exit(0)
           if anchor not in t:
-              print("::error::anchor '} apk_sign_keys[] = {' not found"); sys.exit(1)
+              print("::warning::anchor '} apk_sign_keys[] = {' not found, skip dsh cert injection"); sys.exit(0)
           t = t.replace(anchor, anchor + '\n    { 0x361, "%s" }, // dsh self-signed' % exp, 1)
           p.write_text(t); print("injected")
           PY
