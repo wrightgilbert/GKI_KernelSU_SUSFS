@@ -1605,6 +1605,17 @@ jobs:
           print('injected susfs_def.h include')
           PY
           grep -n 'susfs_def.h' fs/exec.c
+      - name: 修复 SukiSU builtin 在 6.12 的 policydb 编译错误
+        if: inputs.ksu_mode != '禁用KSU' && inputs.ksu_variant == 'SukiSU'
+        working-directory: ${{ env.KERNEL_ROOT }}
+        run: |
+          F="KernelSU/kernel/selinux/rules.c"
+          if [ -f "$F" ] && grep -q 'policydb->latest_granting' "$F"; then
+            sed -i 's/policydb->latest_granting/db->latest_granting/' "$F"
+            echo "已修 rules.c: policydb->latest_granting -> db->latest_granting"
+          else
+            echo "rules.c 无需修复或不存在"
+          fi
       - name: 编译内核
         id: compile_kernel
         uses: nick-fields/retry@v4
